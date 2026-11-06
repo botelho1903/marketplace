@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="description" content="Marketplace - Instale o app no seu celular">
+    <title>Marketplace App - Instalação</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 36px;
+            font-weight: 800;
+            box-shadow: 0 10px 30px rgba(59,130,246,0.4);
+        }
+        h1 { text-align: center; font-size: 28px; margin-bottom: 8px; font-weight: 700; }
+        .subtitle { text-align: center; color: rgba(255,255,255,0.7); margin-bottom: 32px; font-size: 16px; }
+        .install-options { display: flex; flex-direction: column; gap: 16px; }
+        .install-btn {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 24px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .install-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .install-btn.primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); border: none; }
+        .install-btn.primary:hover { box-shadow: 0 10px 30px rgba(59,130,246,0.5); }
+        .btn-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+        .btn-icon.pwa { background: linear-gradient(135deg, #10b981, #059669); }
+        .btn-icon.apk { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .btn-icon.web { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .btn-content { flex: 1; text-align: left; }
+        .btn-title { font-size: 16px; font-weight: 700; }
+        .btn-desc { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+        .qr-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; }
+        .qr-section h3 { font-size: 16px; margin-bottom: 16px; opacity: 0.9; }
+        .qr-codes { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        .qr-item { background: white; padding: 12px; border-radius: 12px; min-width: 160px; }
+        .qr-item img { width: 140px; height: 140px; display: block; }
+        .qr-label { font-size: 12px; color: #374151; margin-top: 8px; font-weight: 600; }
+        .features { margin-top: 32px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .feature { background: rgba(255,255,255,0.05); padding: 16px; border-radius: 12px; text-align: center; }
+        .feature-icon { font-size: 24px; margin-bottom: 8px; }
+        .feature-title { font-size: 13px; font-weight: 600; }
+        .feature-desc { font-size: 11px; opacity: 0.7; margin-top: 4px; }
+        .footer { margin-top: 32px; text-align: center; font-size: 12px; opacity: 0.5; }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @media (max-width: 400px) { .features { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">M</div>
+        <h1>Marketplace</h1>
+        <p class="subtitle">Compre e venda com segurança. Produtos físicos, digitais, licenças e muito mais.</p>
+
+        <div class="install-options">
+            <!-- PWA - Recomendado -->
+            <a href="https://SEU-APP.vercel.app" class="install-btn primary pulse" target="_blank" rel="noopener">
+                <span class="btn-icon pwa">⚡</span>
+                <div class="btn-content">
+                    <div class="btn-title">Instalar como App (PWA) - RECOMENDADO</div>
+                    <div class="btn-desc">Funciona agora, sem download. Adiciona à tela inicial como app nativo.</div>
+                </div>
+            </a>
+
+            <!-- APK Download -->
+            <a href="https://github.com/SEU-USUARIO/marketplace/releases/latest" class="install-btn" target="_blank" rel="noopener">
+                <span class="btn-icon apk">📦</span>
+                <div class="btn-content">
+                    <div class="btn-title">Baixar APK (Android)</div>
+                    <div class="btn-desc">Versão nativa para Play Store. Requer Android 8+.</div>
+                </div>
+            </a>
+
+            <!-- Acessar Web -->
+            <a href="https://SEU-APP.vercel.app" class="install-btn" target="_blank" rel="noopener">
+                <span class="btn-icon web">🌐</span>
+                <div class="btn-content">
+                    <div class="btn-title">Acessar pelo Navegador</div>
+                    <div class="btn-desc">Use direto no Chrome/Safari sem instalar nada.</div>
+                </div>
+            </a>
+        </div>
+
+        <!-- QR Codes -->
+        <div class="qr-section">
+            <h3>📱 Escaneie para instalar no celular</h3>
+            <div class="qr-codes">
+                <div class="qr-item">
+                    <img id="qr-pwa" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDAgMTQwIj48cmVjdCB3aWR0aD0iMTQwIiBoZWlnaHQ9IjE0MCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjcwIiB5PSI3MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+UVFyIENvZGU8L3RleHQ+PC9zdmc+" alt="QR Code PWA">
+                    <div class="qr-label">App PWA (Recomendado)</div>
+                </div>
+                <div class="qr-item">
+                    <img id="qr-apk" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDAgMTQwIj48cmVjdCB3aWR0aD0iMTQwIiBoZWlnaHQ9IjE0MCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjcwIiB5PSI3MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+UVFyIENvZGU8L3RleHQ+PC9zdmc+" alt="QR Code APK">
+                    <div class="qr-label">APK (GitHub Releases)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🛍️</div>
+                <div class="feature-title">Produtos Físicos</div>
+                <div class="feature-desc">Roupas, eletrônicos, acessórios com frete</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎮</div>
+                <div class="feature-title">Produtos Digitais</div>
+                <div class="feature-desc">Jogos, licenças, software, downloads</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💳</div>
+                <div class="feature-title">Pagamentos</div>
+                <div class="feature-desc">PIX, Cartão, Dinheiro, Mercado Pago</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔐</div>
+                <div class="feature-title">Segurança Total</div>
+                <div class="feature-desc">Criptografia, 2FA, LGPD, Auditoria</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Desenvolvido com ❤️ por <strong>Botelho</strong></p>
+            <p>Versão 1.0.0 · Next.js 14 · PWA · Capacitor</p>
+        </div>
+    </div>
+
+    <script>
+        // Auto-generate QR codes with current URL
+        const baseUrl = 'https://SEU-APP.vercel.app';
+        const githubUrl = 'https://github.com/SEU-USUARIO/marketplace/releases/latest';
+
+        // Use QRCode API (Google Charts) - replace with your actual URLs
+        document.getElementById('qr-pwa').src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(baseUrl)}&color=3b82f6&bgcolor=ffffff`;
+        document.getElementById('qr-apk').src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(githubUrl)}&color=8b5cf6&bgcolor=ffffff`;
+
+        // Update links with actual URLs (user must replace SEU-APP and SEU-USUARIO)
+        document.querySelectorAll('a[href*="SEU-APP"]').forEach(a => {
+            a.href = a.href.replace('SEU-APP.vercel.app', window.location.hostname);
+        });
+        document.querySelectorAll('a[href*="SEU-USUARIO"]').forEach(a => {
+            a.href = a.href.replace('SEU-USUARIO/marketplace', 'SEU_USUARIO/marketplace');
+        });
+
+        // Detect if on mobile and show PWA install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show custom install button
+        });
+
+        // PWA Install helper
+        const pwaBtn = document.querySelector('.install-btn.primary');
+        pwaBtn.addEventListener('click', async (e) => {
+            if (deferredPrompt) {
+                e.preventDefault();
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('PWA install:', outcome);
+                deferredPrompt = null;
+            }
+        });
+    </script>
+</body>
+</html>
