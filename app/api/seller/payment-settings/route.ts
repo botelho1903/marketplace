@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth/config'
 import crypto from 'crypto'
+import { sellerPaymentSettingsSchema } from '@/lib/validations/payment'
+import { sellerSettingsRateLimiter, addRateLimitHeaders } from '@/lib/rate-limit'
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'your-32-char-encryption-key-change-in-production'
 
@@ -77,6 +79,12 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await sellerSettingsRateLimiter(req)
+    if (!rateLimitResult.success) {
+      return rateLimitResult.response!
+    }
+
     const session = await auth()
     if (!session?.user || (session.user as any).role !== 'SELLER' && (session.user as any).role !== 'ADMIN') {
       return NextResponse.json({ message: 'Não autorizado' }, { status: 401 })
@@ -84,6 +92,15 @@ export async function PUT(req: NextRequest) {
 
     const userId = (session.user as any).id
     const body = await req.json()
+
+    // Validate input with Zod
+    const validation = sellerPaymentSettingsSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { message: 'Dados inválidos', errors: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
 
     const {
       mercadopagoAccessToken,
@@ -93,7 +110,7 @@ export async function PUT(req: NextRequest) {
       bankAccount,
       commissionRate,
       payoutSchedule,
-    } = body
+    } = validation.data
 
     const updateData: any = {}
 
@@ -160,10 +177,14 @@ export async function PUT(req: NextRequest) {
           payoutSchedule: sellerProfile.payoutSchedule,
         },
         metadata: { updatedFields: Object.keys(updateData) },
+        ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+                   req.headers.get('x-real-ip') ||
+                   undefined,
+        userAgent: req.headers.get('user-agent') || undefined,
       }
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: 'Configurações de pagamento atualizadas com sucesso',
       hasMercadoPagoCredentials: !!sellerProfile.mercadopagoAccessToken,
       mercadopagoPublicKey: sellerProfile.mercadopagoPublicKey,
@@ -174,6 +195,8 @@ export async function PUT(req: NextRequest) {
       commissionRate: sellerProfile.commissionRate,
       payoutSchedule: sellerProfile.payoutSchedule,
     })
+
+    return addRateLimitHeaders(response, rateLimitResult.remaining, rateLimitResult.resetTime, 10)
   } catch (error) {
     console.error('Error updating seller payment settings:', error)
     return NextResponse.json({ message: 'Erro ao atualizar configurações de pagamento' }, { status: 500 })

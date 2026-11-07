@@ -1,0 +1,17 @@
+# ============================================================
+# MARKETPLACE - Production Override (Customize for your domain)
+# ============================================================
+# Copy this file and edit with your values, or use environment variables
+
+services:
+  app:
+    environment:
+      - NEXT_PUBLIC_APP_URL=https://seu-dominio.com
+      - NEXTAUTH_URL=https://seu-dominio.com
+    deploy:
+      replicas: 3  # Adjust based on your server capacity
+
+  nginx:
+    environment:
+      - DOMAIN=seu-dominio.com
+      - EMAIL=admin@seu-dominio.com  # For Let's Encrypt notifications

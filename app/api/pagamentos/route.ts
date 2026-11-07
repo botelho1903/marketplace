@@ -3,9 +3,17 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth/config'
 import { createPaymentService, PaymentService } from '@/lib/payments/payment-service'
 import { PaymentMethod, Prisma } from '@prisma/client'
+import { createPaymentSchema } from '@/lib/validations/payment'
+import { paymentCreationRateLimiter, addRateLimitHeaders } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await paymentCreationRateLimiter(req)
+    if (!rateLimitResult.success) {
+      return rateLimitResult.response!
+    }
+
     const session = await auth()
     if (!session?.user) {
       return NextResponse.json({ message: 'Não autorizado' }, { status: 401 })
@@ -13,6 +21,15 @@ export async function POST(req: NextRequest) {
 
     const userId = (session.user as any).id
     const body = await req.json()
+
+    // Validate input with Zod
+    const validation = createPaymentSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { message: 'Dados inválidos', errors: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
 
     const {
       orderId,
@@ -24,17 +41,7 @@ export async function POST(req: NextRequest) {
       cardholderIdentification,
       cardholderName,
       metadata,
-    } = body
-
-    if (!orderId || !paymentMethod) {
-      return NextResponse.json({ message: 'orderId e paymentMethod são obrigatórios' }, { status: 400 })
-    }
-
-    // Validate payment method
-    const validMethods: PaymentMethod[] = ['PIX', 'CREDIT_CARD', 'DINHEIRO', 'CASH_ON_DELIVERY']
-    if (!validMethods.includes(paymentMethod)) {
-      return NextResponse.json({ message: 'Método de pagamento inválido' }, { status: 400 })
-    }
+    } = validation.data
 
     // Get order with all details
     const order = await prisma.order.findUnique({
@@ -120,10 +127,6 @@ export async function POST(req: NextRequest) {
     let paymentResult: any
 
     if (paymentMethod === 'CREDIT_CARD') {
-      if (!creditCardToken || !creditCardInstallments || !creditCardPaymentMethodId) {
-        return NextResponse.json({ message: 'Dados do cartão de crédito incompletos' }, { status: 400 })
-      }
-
       paymentResult = await paymentService.createPayment({
         ...paymentInput,
         creditCardData: {
@@ -144,9 +147,9 @@ export async function POST(req: NextRequest) {
               number: order.buyer.phone.substring(2),
             } : undefined,
           },
-          paymentMethodId: creditCardPaymentMethodId,
-          token: creditCardToken,
-          installments: creditCardInstallments,
+          paymentMethodId: creditCardPaymentMethodId!,
+          token: creditCardToken!,
+          installments: creditCardInstallments!,
           issuerId: creditCardIssuerId,
           notificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/mercado-pago`,
           backUrls: {
@@ -185,13 +188,13 @@ export async function POST(req: NextRequest) {
         },
       })
     } else {
-      // Cash payment
+      // Cash payment (DINHEIRO or CASH_ON_DELIVERY)
       paymentResult = await paymentService.createPayment(paymentInput)
     }
 
     // Return payment details to frontend
     const payment = paymentResult.payment
-    const response: any = {
+    let paymentResponse: any = {
       success: true,
       payment: {
         id: payment.id,
@@ -208,13 +211,14 @@ export async function POST(req: NextRequest) {
     if (paymentMethod === 'PIX' && payment.gatewayResponse) {
       const gatewayResponse = payment.gatewayResponse as any
       if (gatewayResponse.pointOfInteraction?.transactionData) {
-        response.payment.qrCode = gatewayResponse.pointOfInteraction.transactionData.qrCode
-        response.payment.qrCodeBase64 = gatewayResponse.pointOfInteraction.transactionData.qrCodeBase64
-        response.payment.ticketUrl = gatewayResponse.pointOfInteraction.transactionData.ticketUrl
+        paymentResponse.payment.qrCode = gatewayResponse.pointOfInteraction.transactionData.qrCode
+        paymentResponse.payment.qrCodeBase64 = gatewayResponse.pointOfInteraction.transactionData.qrCodeBase64
+        paymentResponse.payment.ticketUrl = gatewayResponse.pointOfInteraction.transactionData.ticketUrl
       }
     }
 
-    return NextResponse.json(response, { status: 201 })
+    const response = NextResponse.json(paymentResponse, { status: 201 })
+    return addRateLimitHeaders(response, rateLimitResult.remaining, rateLimitResult.resetTime, 20)
   } catch (error) {
     console.error('Error creating payment:', error)
     return NextResponse.json({
