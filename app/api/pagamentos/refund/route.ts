@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth/config'
 import { createPaymentService } from '@/lib/payments/payment-service'
+import { refundPaymentSchema } from '@/lib/validations/payment'
+import { paymentCreationRateLimiter, addRateLimitHeaders } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await paymentCreationRateLimiter(req)
+    if (!rateLimitResult.success) {
+      return rateLimitResult.response!
+    }
+
     const session = await auth()
     if (!session?.user || (session.user as any).role !== 'SELLER' && (session.user as any).role !== 'ADMIN') {
       return NextResponse.json({ message: 'Não autorizado' }, { status: 401 })
@@ -14,11 +22,16 @@ export async function POST(req: NextRequest) {
     const userRole = (session.user as any).role
     const body = await req.json()
 
-    const { paymentId, amount, reason } = body
-
-    if (!paymentId) {
-      return NextResponse.json({ message: 'paymentId é obrigatório' }, { status: 400 })
+    // Validate input with Zod
+    const validation = refundPaymentSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { message: 'Dados inválidos', errors: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      )
     }
+
+    const { paymentId, amount, reason } = validation.data
 
     const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
@@ -73,7 +86,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       payment: {
         id: result.payment.id,
@@ -82,6 +95,8 @@ export async function POST(req: NextRequest) {
         isPartialRefund,
       },
     })
+
+    return addRateLimitHeaders(response, rateLimitResult.remaining, rateLimitResult.resetTime, 20)
   } catch (error) {
     console.error('Error processing refund:', error)
     return NextResponse.json({
