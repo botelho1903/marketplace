@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import Redis from 'ioredis'
 
 interface RateLimitConfig {
   windowMs: number
@@ -11,19 +12,57 @@ interface RateLimitEntry {
   resetTime: number
 }
 
-// In-memory store (use Redis in production)
-const rateLimitStore = new Map<string, RateLimitEntry>()
+/**
+ * Redis client singleton - connects via REDIS_URL env var
+ * Falls back to in-memory if Redis unavailable (dev only)
+ */
+function createRedisClient(): Redis | null {
+  const redisUrl = process.env.REDIS_URL
+  if (!redisUrl) {
+    console.warn('[rate-limit] REDIS_URL not set, using in-memory fallback (dev only)')
+    return null
+  }
 
-// Cleanup old entries periodically
+  try {
+    const client = new Redis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+      lazyConnect: true,
+    })
+
+    client.on('error', (err) => {
+      console.error('[rate-limit] Redis connection error:', err.message)
+    })
+
+    client.on('connect', () => {
+      console.log('[rate-limit] Redis connected')
+    })
+
+    return client
+  } catch (err) {
+    console.error('[rate-limit] Failed to create Redis client:', err)
+    return null
+  }
+}
+
+const redis = createRedisClient()
+
+// In-memory fallback for dev (when Redis not configured)
+const memoryStore = new Map<string, RateLimitEntry>()
 setInterval(() => {
   const now = Date.now()
-  for (const [key, entry] of Array.from(rateLimitStore.entries())) {
+  for (const [key, entry] of Array.from(memoryStore.entries())) {
     if (entry.resetTime < now) {
-      rateLimitStore.delete(key)
+      memoryStore.delete(key)
     }
   }
 }, 60000)
 
+/**
+ * Sliding window rate limiter using Redis sorted sets (or memory fallback)
+ * Key format: "ratelimit:{prefix}:{identifier}"
+ * Sorted set members: timestamp (score = timestamp, value = unique request id)
+ */
 export function createRateLimiter(config: RateLimitConfig) {
   return async function rateLimiter(
     request: NextRequest,
@@ -32,38 +71,97 @@ export function createRateLimiter(config: RateLimitConfig) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
                request.headers.get('x-real-ip') ||
                'unknown'
-    const key = `${config.keyPrefix}:${identifier || ip}`
+    const key = `ratelimit:${config.keyPrefix}:${identifier || ip}`
     const now = Date.now()
     const windowStart = now - config.windowMs
+    const windowSec = Math.ceil(config.windowMs / 1000)
+    const resetTime = now + config.windowMs
 
-    let entry = rateLimitStore.get(key)
+    if (redis) {
+      // Redis implementation: sliding window with sorted set
+      try {
+        await redis.connect()
 
-    if (!entry || entry.resetTime < now) {
-      entry = {
-        count: 0,
-        resetTime: now + config.windowMs,
+        const pipeline = redis.pipeline()
+
+        // Remove expired entries
+        pipeline.zremrangebyscore(key, 0, windowStart)
+
+        // Count current requests in window
+        pipeline.zcard(key)
+
+        // Add current request
+        const requestId = `${now}:${Math.random().toString(36).slice(2)}`
+        pipeline.zadd(key, now, requestId)
+
+        // Set TTL on key (window + buffer)
+        pipeline.expire(key, windowSec + 10)
+
+        const results = await pipeline.exec()
+
+        if (!results) throw new Error('Pipeline returned null')
+
+        const currentCount = (results[1]?.[1] as number) || 0
+        const newCount = currentCount + 1
+        const remaining = Math.max(0, config.maxRequests - newCount)
+
+        if (newCount > config.maxRequests) {
+          // Retry-after based on window start (conservative estimate)
+          const retryAfter = Math.ceil(config.windowMs / 1000)
+
+          return {
+            success: false,
+            response: NextResponse.json(
+              {
+                message: 'Muitas requisições. Tente novamente mais tarde.',
+                retryAfter,
+              },
+              {
+                status: 429,
+                headers: {
+                  'X-RateLimit-Limit': config.maxRequests.toString(),
+                  'X-RateLimit-Remaining': '0',
+                  'X-RateLimit-Reset': Math.ceil(resetTime / 1000).toString(),
+                  'Retry-After': retryAfter.toString(),
+                },
+              }
+            ),
+            remaining: 0,
+            resetTime,
+          }
+        }
+
+        return { success: true, remaining, resetTime }
+      } catch (err) {
+        console.error('[rate-limit] Redis error, falling back to memory:', err)
+        // Fall through to memory implementation
       }
-      rateLimitStore.set(key, entry)
     }
 
-    // Remove old entries outside the window
+    // In-memory fallback (dev only)
+    let entry = memoryStore.get(key)
+
+    if (!entry || entry.resetTime < now) {
+      entry = { count: 0, resetTime }
+      memoryStore.set(key, entry)
+    }
+
     if (entry.resetTime < now) {
       entry.count = 0
-      entry.resetTime = now + config.windowMs
+      entry.resetTime = resetTime
     }
 
     entry.count++
-
     const remaining = Math.max(0, config.maxRequests - entry.count)
-    const resetTime = entry.resetTime
 
     if (entry.count > config.maxRequests) {
+      const retryAfter = Math.ceil((entry.resetTime - now) / 1000)
       return {
         success: false,
         response: NextResponse.json(
           {
             message: 'Muitas requisições. Tente novamente mais tarde.',
-            retryAfter: Math.ceil((entry.resetTime - now) / 1000),
+            retryAfter,
           },
           {
             status: 429,
@@ -71,20 +169,16 @@ export function createRateLimiter(config: RateLimitConfig) {
               'X-RateLimit-Limit': config.maxRequests.toString(),
               'X-RateLimit-Remaining': '0',
               'X-RateLimit-Reset': Math.ceil(entry.resetTime / 1000).toString(),
-              'Retry-After': Math.ceil((entry.resetTime - now) / 1000).toString(),
+              'Retry-After': retryAfter.toString(),
             },
           }
         ),
         remaining: 0,
-        resetTime,
+        resetTime: entry.resetTime,
       }
     }
 
-    return {
-      success: true,
-      remaining,
-      resetTime,
-    }
+    return { success: true, remaining, resetTime: entry.resetTime }
   }
 }
 
