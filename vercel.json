@@ -59,12 +59,6 @@
       "destination": "/api/webhooks/:path*"
     }
   ],
-  "crons": [
-    {
-      "path": "/api/cron/process-webhook-retries",
-      "schedule": "*/2 * * * *"
-    }
-  ],
   "env": {
     "NEXT_PUBLIC_APP_URL": "@next-public-app-url",
     "NODE_ENV": "production"

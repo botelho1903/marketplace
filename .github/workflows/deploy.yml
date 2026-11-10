@@ -76,12 +76,13 @@ jobs:
         run: npm run test:integration --if-present
 
   # ============================================================
-  # BUILD
+  # BUILD (only on main push - needs secrets)
   # ============================================================
   build:
     name: Build Application
     runs-on: ubuntu-latest
     needs: [lint, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -97,6 +98,8 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Build Application
         run: npm run build
@@ -164,7 +167,7 @@ jobs:
   deploy-vercel:
     name: Deploy to Vercel
     runs-on: ubuntu-latest
-    needs: build
+    needs: [lint, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
@@ -191,7 +194,7 @@ jobs:
   deploy-vps:
     name: Deploy to VPS
     runs-on: ubuntu-latest
-    needs: [build, docker]
+    needs: [lint, test, docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
     steps:
@@ -220,7 +223,7 @@ jobs:
     name: Notify Deployment Status
     runs-on: ubuntu-latest
     needs: [deploy-vercel, deploy-vps]
-    if: always()
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Send Discord Notification
         if: env.DISCORD_WEBHOOK != ''
