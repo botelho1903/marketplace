@@ -58,9 +58,5 @@
       "source": "/webhooks/:path*",
       "destination": "/api/webhooks/:path*"
     }
-  ],
-  "env": {
-    "NEXT_PUBLIC_APP_URL": "@next-public-app-url",
-    "NODE_ENV": "production"
-  }
+  ]
 }
